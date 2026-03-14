@@ -20,7 +20,11 @@ class MyDataset(Dataset):
         return len(self.encoded_segments)
 
     def __getitem__(self, idx):
-        return self.encoded_segments[idx]
+        item = self.encoded_segments[idx]
+        return {
+            "input_ids": item["input_ids"].squeeze(0),
+            "attention_mask": item["attention_mask"].squeeze(0),
+        }
 
 
 def print_trainable_parameters(model):
@@ -71,7 +75,17 @@ def get_dataset(data_dir, mode, tokenizer, max_length):
         tokens = tokens[:20000]
 
     segments = [tokens[i:i + max_length] for i in range(0, len(tokens), max_length)]
-    encoded_segments = [tokenizer.prepare_for_model(seg, max_length=max_length, truncation=True, padding='max_length', return_tensors='pt') for seg in segments]
+
+    encoded_segments = [
+        tokenizer(
+            tokenizer.decode(seg),
+            max_length=max_length,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt"
+        )
+        for seg in segments
+    ]
 
     return MyDataset(encoded_segments)
 
@@ -189,8 +203,6 @@ if __name__ == "__main__":
     model = AutoModelForCausalLM.from_pretrained(
         args.model, 
         device_map=args.device,
-        do_sample=True,
-        use_cache=True,
         cache_dir=args.cache_dir
     )
     
